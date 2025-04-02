@@ -1,0 +1,28 @@
+"Phrases"
+{  
+	//Убрать текст = не писать в чат
+	"ChangeTeam_SPEC"
+	{
+		"ru"		"Игрок {GREEN}%s {DEFAULT}перешёл в {GRAY}Наблюдатели."
+	}
+
+	"ChangeTeam_CT"
+	{
+		"ru"		"Игрок {GREEN}%s {DEFAULT}зашел за команду {BLUE}Спецназ."
+	}
+
+	"ChangeTeam_T"
+	{
+		"ru"		"Игрок {GREEN}%s {DEFAULT}зашел за команду {RED}Террористов."
+	}
+
+	"User_Leave"
+	{
+		"ru"		"Игрок {GREEN}%s {DEFAULT}покинул игру."
+	}
+	
+	"User_Connect"
+	{
+		"ru"		"Игрок {GREEN}%s {DEFAULT}подключился к серверу."
+	}
+}
