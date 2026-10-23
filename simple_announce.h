@@ -13,9 +13,11 @@ class CCSGameRules;
 #include "include/admin.h"
 #include "include/menus.h"
 
-class simple_announce final : public ISmmPlugin, public IMetamodListener
+class simple_announce final : public ISmmPlugin, public IMetamodListener, public IServerListener
 {
 public:
+	void FireEvent(IGameEvent *pEvent, bool bDontBroadcast) override;
+
 	bool Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxlen, bool late);
 	bool Unload(char* error, size_t maxlen);
 	void AllPluginsLoaded();
@@ -30,7 +32,7 @@ private:
 	const char* GetLogTag();
 
 private:
-	bool FireEvent(IGameEvent* pEvent, bool bDontBroadcast);
+	bool FireEvent_Hook(IGameEvent* pEvent, bool bDontBroadcast);
 };
 
 #endif //_INCLUDE_METAMOD_SOURCE_STUB_PLUGIN_H_

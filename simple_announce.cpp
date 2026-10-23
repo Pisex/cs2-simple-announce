@@ -4,7 +4,7 @@
 #include "metamod_oslink.h"
 #include "networksystem/inetworksystem.h"
 #include <utlstring.h>
-#include <KeyValues.h>
+#include <keyvalues.h>
 #include <cstring>
 #include <map>
 #include <string>
@@ -15,13 +15,13 @@ IVEngineServer2* engine = nullptr;
 IGameEventManager2* gameeventmanager = nullptr;
 
 IUtilsApi* g_pUtils;
+int g_iUtilsFireEventDontBroadcast = -1;
 IAdminApi* g_pAdminApi;
 IPlayersApi* g_pPlayersApi;
 simple_announce g_simple_announce;
 
 PLUGIN_EXPOSE(simple_announce, g_simple_announce);
 
-SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent*, bool);
 
 std::map<std::string, std::string> g_vecPhrases;
 
@@ -52,16 +52,16 @@ bool simple_announce::Load(PluginId id, ISmmAPI* ismm, char* error, size_t maxle
 
 bool simple_announce::Unload(char *error, size_t maxlen)
 {
-	SH_REMOVE_HOOK(IGameEventManager2, FireEvent, gameeventmanager, SH_MEMBER(this, &simple_announce::FireEvent), false);
+	if(g_pUtils) g_pUtils->ClearAllHooks(g_PLID);
 	ConVar_Unregister();
 	
 	return true;
 }
 
-bool simple_announce::FireEvent(IGameEvent* pEvent, bool bDontBroadcast)
+bool simple_announce::FireEvent_Hook(IGameEvent* pEvent, bool bDontBroadcast)
 {
     if (!pEvent) {
-        RETURN_META_VALUE(MRES_IGNORED, false);
+        return false;
     }
 	const char* szName = pEvent->GetName();
 	bool bNewParams = false;
@@ -92,8 +92,8 @@ bool simple_announce::FireEvent(IGameEvent* pEvent, bool bDontBroadcast)
 		if(g_vecPhrases["User_Connect"].size()) g_pUtils->PrintToChatAll(g_vecPhrases["User_Connect"].c_str(), pEvent->GetString("name"));
 		bNewParams = true;
 	}
-	if(bNewParams) RETURN_META_VALUE_NEWPARAMS(MRES_IGNORED, true, &IGameEventManager2::FireEvent, (pEvent, true));
-    else RETURN_META_VALUE(MRES_IGNORED, true);
+	if(bNewParams) { g_iUtilsFireEventDontBroadcast = (true) ? 1 : 0; return true; }
+    else return true;
 }
 
 void simple_announce::AllPluginsLoaded()
@@ -109,6 +109,26 @@ void simple_announce::AllPluginsLoaded()
 		engine->ServerCommand(sBuffer.c_str());
 		return;
 	}
+	g_pUtils->AddServerListener(g_PLID, this);
+	g_pUtils->HookEventPre(g_PLID, "player_connect", [](const char*, IGameEvent*, EventInfo* info) {
+		if (g_iUtilsFireEventDontBroadcast < 0) return EventHookResult::Continue;
+		info->bDontBroadcast = g_iUtilsFireEventDontBroadcast == 1;
+		g_iUtilsFireEventDontBroadcast = -1;
+		return EventHookResult::Changed;
+	});
+	g_pUtils->HookEventPre(g_PLID, "player_disconnect", [](const char*, IGameEvent*, EventInfo* info) {
+		if (g_iUtilsFireEventDontBroadcast < 0) return EventHookResult::Continue;
+		info->bDontBroadcast = g_iUtilsFireEventDontBroadcast == 1;
+		g_iUtilsFireEventDontBroadcast = -1;
+		return EventHookResult::Changed;
+	});
+	g_pUtils->HookEventPre(g_PLID, "player_team", [](const char*, IGameEvent*, EventInfo* info) {
+		if (g_iUtilsFireEventDontBroadcast < 0) return EventHookResult::Continue;
+		info->bDontBroadcast = g_iUtilsFireEventDontBroadcast == 1;
+		g_iUtilsFireEventDontBroadcast = -1;
+		return EventHookResult::Changed;
+	});
+
 	g_pPlayersApi = (IPlayersApi *)g_SMAPI->MetaFactory(PLAYERS_INTERFACE, &ret, NULL);
 	if (ret == META_IFACE_FAILED)
 	{
@@ -132,7 +152,6 @@ void simple_announce::AllPluginsLoaded()
 		g_vecPhrases[std::string(pKey->GetName())] = std::string(pKey->GetString(pszLanguage));
 
 	gameeventmanager = g_pUtils->GetGameEventManager();
-	SH_ADD_HOOK(IGameEventManager2, FireEvent, gameeventmanager, SH_MEMBER(this, &simple_announce::FireEvent), false);
 }
 
 ///////////////////////////////////////
@@ -174,4 +193,10 @@ const char* simple_announce::GetName()
 const char* simple_announce::GetURL()
 {
 	return "";
+}
+
+void simple_announce::FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
+{
+	g_iUtilsFireEventDontBroadcast = -1;
+	FireEvent_Hook(pEvent, bDontBroadcast);
 }
